@@ -1,0 +1,20 @@
+[package]
+name = "mly"
+authors = ["Nmlgc"]
+categories = ["command-line-utilities"]
+description = "Unix-style filter suite for Standard MIDI Files"
+license = "GPL-3.0-or-later"
+keywords = ["midi"]
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+clap = { version = "4.4.11", features = ["derive", "wrap_help"] }
+midly = "0.5.3"
+
+[profile.release]
+lto = true
+strip = true
+panic = "abort"
