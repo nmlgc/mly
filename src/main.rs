@@ -1,6 +1,12 @@
-use std::error::Error;
+mod dump;
 
-use clap::Parser;
+use std::{
+    error::Error,
+    io::{self, Read},
+};
+
+use clap::{Parser, Subcommand};
+use midly::Smf;
 
 struct HelpTemplate {}
 
@@ -11,7 +17,8 @@ impl From<HelpTemplate> for clap::builder::StyledStr {
         format!(
             "{{about-with-newline}}
 {{usage-heading}}
-{INDENT}{{usage}}
+{INDENT}(.mid data in stdin) | {{usage}}
+{INDENT}<FILE.mid {{usage}}{{tab}}(does not work on PowerShell)
 
 {{all-args}}{{after-help}}",
         )
@@ -21,6 +28,13 @@ impl From<HelpTemplate> for clap::builder::StyledStr {
 
 fn help() -> HelpTemplate {
     HelpTemplate {}
+}
+
+#[derive(Subcommand)]
+enum CliCommand {
+    /// Dumps all MIDI events to stdout, with one event per line.
+    #[command(help_template = help())]
+    Dump,
 }
 
 #[derive(Parser)]
@@ -38,9 +52,19 @@ fn help() -> HelpTemplate {
         "\x1B[4;1mLatest version and source code:\x1B[0m\n{INDENT}https://github.com/nmlgc/mly"
     )
 )]
-struct Cli {}
+struct Cli {
+    #[command(subcommand)]
+    command: CliCommand,
+}
 
-fn run(_: Cli) -> Result<(), Box<dyn Error>> {
+fn run(args: Cli) -> Result<(), Box<dyn Error>> {
+    let mut bytes = Vec::new();
+    io::stdin().lock().read_to_end(&mut bytes)?;
+    let smf = Smf::parse(&bytes)?;
+
+    match args.command {
+        CliCommand::Dump => dump::dump(&smf),
+    }
     Ok(())
 }
 
