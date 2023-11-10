@@ -1,4 +1,5 @@
 mod dump;
+mod time;
 
 use std::{
     error::Error,
