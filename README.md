@@ -9,3 +9,5 @@ Unix-style filter suite for Standard MIDI Files, built on top of the [midly crat
 ### `dump`
 
 Dumps all MIDI events to stdout, with one event per line.
+
+For easier navigation, the output also contains the total MIDI pulse count in a separate column.
