@@ -35,8 +35,8 @@ fn help() -> HelpTemplate {
 enum CliCommand {
     /// Dumps all MIDI events to stdout, with one event per line.
     ///
-    /// For easier navigation, the output also contains the total MIDI pulse count in a separate
-    /// column.
+    /// For easier navigation, the output also contains the total MIDI pulse count and the 0-based
+    /// *quarter-note:pulse* beat number in separate columns.
     #[command(help_template = help())]
     Dump,
 }
