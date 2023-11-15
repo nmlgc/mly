@@ -1,6 +1,8 @@
 //! Loop detection.
 
-use midly::{Smf, TrackEvent};
+use midly::{Smf, Timing, TrackEvent};
+
+use crate::time::MidiTimeDisplay;
 
 #[derive(Clone, Copy, Default)]
 struct Loop {
@@ -9,7 +11,7 @@ struct Loop {
 }
 
 impl Loop {
-    fn print(&self, prefix: &str) {
+    fn print(&self, prefix: &str, timing: &Timing, track: &[TrackEvent]) {
         if self.len == 0 {
             println!("No loop found.");
             return;
@@ -21,6 +23,18 @@ impl Loop {
         println!(
             "{prefix} {len} events (between event #[{start}, {end_1}[ and [{end_1}, {end_2}[)"
         );
+
+        let event_width = (track.len().ilog10() + 1) as usize;
+        let mut time = MidiTimeDisplay::new(timing, track);
+        for (ev_i, ev) in track.iter().enumerate() {
+            time.time = time.time + ev;
+            if ev_i == start {
+                println!("Loop start: event {ev_i:>event_width$} / {time}");
+            } else if ev_i == end_1 {
+                println!("  Loop end: event {ev_i:>event_width$} / {time}");
+                return;
+            }
+        }
     }
 }
 
@@ -60,6 +74,6 @@ pub fn find(smf: &Smf) -> Result<(), String> {
     let note_loop = (0..track.len()).fold(Loop::default(), |longest, cursor| {
         find_loop_ending_at(cursor, 0, longest.len, track).unwrap_or(longest)
     });
-    note_loop.print("Best loop:");
+    note_loop.print("Best loop:", &smf.header.timing, track);
     Ok(())
 }

@@ -105,3 +105,11 @@ impl<'a> std::fmt::Display for MidiTimeDisplayBeat<'a> {
         write!(f, "{qn:>qn_width$}:{pulse:>0pulse_width$}")
     }
 }
+
+impl std::fmt::Display for MidiTimeDisplay {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let pulse = self.display_pulse();
+        let beat = self.display_beat();
+        write!(f, "pulse {pulse} / beat {beat}")
+    }
+}
