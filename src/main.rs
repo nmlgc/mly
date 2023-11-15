@@ -1,4 +1,5 @@
 mod dump;
+mod loop_find;
 mod time;
 
 use std::{
@@ -39,6 +40,10 @@ enum CliCommand {
     /// *quarter-note:pulse* beat number in separate columns.
     #[command(help_template = help())]
     Dump,
+
+    /// Finds the longest fully repeated range of MIDI events.
+    #[command(help_template = help())]
+    LoopFind,
 }
 
 #[derive(Parser)]
@@ -68,6 +73,7 @@ fn run(args: Cli) -> Result<(), Box<dyn Error>> {
 
     match args.command {
         CliCommand::Dump => dump::dump(&smf),
+        CliCommand::LoopFind => loop_find::find(&smf)?,
     }
     Ok(())
 }
