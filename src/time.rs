@@ -1,12 +1,15 @@
 //! Timekeeping in various units.
 
-use std::cmp::max;
+use std::{cmp::max, time::Duration};
 
-use midly::{num::u28, Timing, TrackEvent};
+use midly::{num::u28, MetaMessage, Timing, TrackEvent, TrackEventKind};
 
 #[derive(Clone, Copy)]
 pub struct MidiTime {
     pulse: u64,
+    realtime: Option<Duration>,
+    qn_duration: Option<Duration>, // a.k.a. "tempo"
+
     ppqn: u16,
 }
 
@@ -14,6 +17,8 @@ impl MidiTime {
     pub fn new(timing: &Timing) -> Self {
         MidiTime {
             pulse: 0,
+            realtime: None,
+            qn_duration: None,
             ppqn: match timing {
                 Timing::Metrical(ppqn) => ppqn.as_int(),
                 Timing::Timecode(_, _) => unimplemented!("ticks/second not supported"),
@@ -26,8 +31,24 @@ impl std::ops::Add<&TrackEvent<'_>> for MidiTime {
     type Output = Self;
 
     fn add(self, ev: &TrackEvent<'_>) -> Self {
+        let pulse = self.pulse + ev.delta.as_int() as u64;
+        let realtime = self
+            .qn_duration
+            .filter(|_| self.realtime.is_some() || pulse == 0)
+            .map(|q| {
+                self.realtime.unwrap_or_default()
+                    + q.mul_f64(ev.delta.as_int().into())
+                        .div_f64(self.ppqn as f64)
+            });
+        let qn_duration = if let TrackEventKind::Meta(MetaMessage::Tempo(tempo)) = ev.kind {
+            Some(Duration::from_micros(tempo.as_int().into()))
+        } else {
+            self.qn_duration
+        };
         MidiTime {
-            pulse: self.pulse + ev.delta.as_int() as u64,
+            pulse,
+            realtime,
+            qn_duration,
             ppqn: self.ppqn,
         }
     }
@@ -40,6 +61,7 @@ pub struct UnitWidths {
     pub beat: usize,
     pub beat_qn: usize,
     pub beat_pulse: usize,
+    pub minutes: usize,
 }
 
 /// Provides formatting for `MidiTime`.
@@ -55,6 +77,7 @@ impl MidiTimeDisplay {
     fn with_limits(start: MidiTime, end: &MidiTime, delta_max: u28) -> Self {
         let beat_qn_width = max(end.pulse / (end.ppqn as u64), 1).ilog10() + 1;
         let beat_pulse_width = max(end.ppqn, 1).ilog10() + 1;
+        let minutes_width = max(end.realtime.map_or(1, |d| d.as_secs() / 60), 1).ilog10() + 1;
 
         MidiTimeDisplay {
             time: start,
@@ -64,6 +87,7 @@ impl MidiTimeDisplay {
                 beat: (beat_qn_width + 1 + beat_pulse_width) as usize,
                 beat_qn: beat_qn_width as usize,
                 beat_pulse: beat_pulse_width as usize,
+                minutes: minutes_width as usize,
             },
         }
     }
@@ -110,6 +134,18 @@ impl std::fmt::Display for MidiTimeDisplay {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let pulse = self.display_pulse();
         let beat = self.display_beat();
-        write!(f, "pulse {pulse} / beat {beat}")
+        write!(f, "pulse {pulse} / beat {beat}")?;
+        if let Some(realtime) = self.time.realtime {
+            // Duration::subsec_millis() truncates, which is not all too nice. Note that we have to
+            // preserve the carry in case we round up from 999 to 1000 milliseconds – I was very
+            // fortunate to have this case happen in my tests!
+            let total_millis = (realtime.as_micros() as f64 / 1000.0).round() as u128;
+            let millis = (total_millis % 1000) as u16;
+            let seconds = ((total_millis / 1000) % 60) as u8;
+            let minutes = ((total_millis / 1000) / 60) % 60;
+            let minutes_width = self.widths.minutes;
+            write!(f, " / {minutes:>minutes_width$}:{seconds:02}:{millis:03}m")?;
+        }
+        Ok(())
     }
 }
