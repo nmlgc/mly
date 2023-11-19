@@ -11,7 +11,7 @@ struct Loop {
 }
 
 impl Loop {
-    fn print(&self, prefix: &str, timing: &Timing, track: &[TrackEvent]) {
+    fn print(&self, prefix: &str, timing: &Timing, track: &[TrackEvent], samplerate: Option<u32>) {
         if self.len == 0 {
             println!("No loop found.");
             return;
@@ -25,7 +25,7 @@ impl Loop {
         );
 
         let event_width = (track.len().ilog10() + 1) as usize;
-        let mut time = MidiTimeDisplay::new(timing, track);
+        let mut time = MidiTimeDisplay::new(timing, track, samplerate);
         for (ev_i, ev) in track.iter().enumerate() {
             time.time = time.time + ev;
             if ev_i == start {
@@ -62,7 +62,11 @@ fn find_loop_ending_at(
     None
 }
 
-pub fn find(smf: &Smf) -> Result<(), String> {
+pub struct Options {
+    pub samplerate: Option<u32>,
+}
+
+pub fn find(smf: &Smf, opts: Options) -> Result<(), String> {
     if smf.tracks.len() != 1 {
         return Err(format!(
             "only implemented for single-track sequences (sequence has {} tracks)",
@@ -74,6 +78,6 @@ pub fn find(smf: &Smf) -> Result<(), String> {
     let note_loop = (0..track.len()).fold(Loop::default(), |longest, cursor| {
         find_loop_ending_at(cursor, 0, longest.len, track).unwrap_or(longest)
     });
-    note_loop.print("Best loop:", &smf.header.timing, track);
+    note_loop.print("Best loop:", &smf.header.timing, track, opts.samplerate);
     Ok(())
 }

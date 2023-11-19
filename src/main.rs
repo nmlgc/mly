@@ -62,6 +62,10 @@ enum CliCommand {
     )
 )]
 struct Cli {
+    /// Sampling rate used for converting times to PCM samples
+    #[arg(short = 'r', long)]
+    samplerate: Option<u32>,
+
     #[command(subcommand)]
     command: CliCommand,
 }
@@ -73,7 +77,12 @@ fn run(args: Cli) -> Result<(), Box<dyn Error>> {
 
     match args.command {
         CliCommand::Dump => dump::dump(&smf),
-        CliCommand::LoopFind => loop_find::find(&smf)?,
+        CliCommand::LoopFind => {
+            let opts = loop_find::Options {
+                samplerate: args.samplerate,
+            };
+            loop_find::find(&smf, opts)
+        }?,
     }
     Ok(())
 }

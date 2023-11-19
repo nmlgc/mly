@@ -11,10 +11,11 @@ pub struct MidiTime {
     qn_duration: Option<Duration>, // a.k.a. "tempo"
 
     ppqn: u16,
+    samplerate: Option<u32>,
 }
 
 impl MidiTime {
-    pub fn new(timing: &Timing) -> Self {
+    pub fn new(timing: &Timing, samplerate: Option<u32>) -> Self {
         MidiTime {
             pulse: 0,
             realtime: None,
@@ -23,7 +24,14 @@ impl MidiTime {
                 Timing::Metrical(ppqn) => ppqn.as_int(),
                 Timing::Timecode(_, _) => unimplemented!("ticks/second not supported"),
             },
+            samplerate,
         }
+    }
+
+    pub fn sample(&self) -> Option<f64> {
+        self.samplerate
+            .zip(self.realtime)
+            .map(|(r, t)| t.as_secs_f64() * r as f64)
     }
 }
 
@@ -50,6 +58,7 @@ impl std::ops::Add<&TrackEvent<'_>> for MidiTime {
             realtime,
             qn_duration,
             ppqn: self.ppqn,
+            samplerate: self.samplerate,
         }
     }
 }
@@ -62,6 +71,7 @@ pub struct UnitWidths {
     pub beat_qn: usize,
     pub beat_pulse: usize,
     pub minutes: usize,
+    pub sample: usize,
 }
 
 /// Provides formatting for `MidiTime`.
@@ -88,12 +98,13 @@ impl MidiTimeDisplay {
                 beat_qn: beat_qn_width as usize,
                 beat_pulse: beat_pulse_width as usize,
                 minutes: minutes_width as usize,
+                sample: (max(end.sample().unwrap_or(1.0) as u64, 1).ilog10() + 1) as usize + 3,
             },
         }
     }
 
-    pub fn new(timing: &Timing, track: &[TrackEvent]) -> Self {
-        let time_init = MidiTime::new(timing);
+    pub fn new(timing: &Timing, track: &[TrackEvent], samplerate: Option<u32>) -> Self {
+        let time_init = MidiTime::new(timing, samplerate);
         let (delta_max, end) = track.iter().fold((0.into(), time_init), |acc, ev| {
             (max(acc.0, ev.delta), (acc.1 + ev))
         });
@@ -145,6 +156,10 @@ impl std::fmt::Display for MidiTimeDisplay {
             let minutes = ((total_millis / 1000) / 60) % 60;
             let minutes_width = self.widths.minutes;
             write!(f, " / {minutes:>minutes_width$}:{seconds:02}:{millis:03}m")?;
+        }
+        if let Some(sample) = self.time.sample() {
+            let sample_width = self.widths.sample;
+            write!(f, " / sample {sample:>sample_width$.2}")?;
         }
         Ok(())
     }

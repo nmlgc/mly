@@ -50,7 +50,7 @@ pub fn dump(smf: &Smf) {
     let beat_header = "Beat";
 
     for (track_i, track) in smf.tracks.iter().enumerate() {
-        let mut time = MidiTimeDisplay::new(&smf.header.timing, track);
+        let mut time = MidiTimeDisplay::new(&smf.header.timing, track, None);
         let widths = time.widths();
         let delta_width = max(delta_header.chars().count(), widths.delta);
         let pulse_width = max(pulse_header.chars().count(), widths.pulse);
