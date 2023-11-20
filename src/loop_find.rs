@@ -2,7 +2,7 @@
 
 use midly::{Smf, Timing, TrackEvent};
 
-use crate::time::MidiTimeDisplay;
+use crate::{event, time::MidiTimeDisplay};
 
 #[derive(Clone, Copy, Default)]
 struct Loop {
@@ -25,9 +25,14 @@ impl Loop {
         );
 
         let event_width = (track.len().ilog10() + 1) as usize;
+        let mut first_note_seen = false;
         let mut time = MidiTimeDisplay::new(timing, track, samplerate);
         for (ev_i, ev) in track.iter().enumerate() {
             time.time = time.time + ev;
+            if !first_note_seen && event::note_on(ev).is_some() {
+                println!("First note: event {ev_i:>event_width$} / {time}");
+                first_note_seen = true;
+            }
             if ev_i == start {
                 println!("Loop start: event {ev_i:>event_width$} / {time}");
             } else if ev_i == end_1 {
