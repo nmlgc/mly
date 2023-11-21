@@ -1,6 +1,7 @@
 //! Loop detection.
 
 use midly::{Smf, Timing, TrackEvent};
+use rayon::prelude::*;
 
 use crate::{event, time::MidiTimeDisplay};
 
@@ -11,6 +12,10 @@ struct Loop {
 }
 
 impl Loop {
+    fn better_than(&self, other: &Loop) -> bool {
+        (self.len > other.len) || ((self.len == other.len) && (self.start < other.start))
+    }
+
     fn print(&self, prefix: &str, timing: &Timing, track: &[TrackEvent], samplerate: Option<u32>) {
         if self.len == 0 {
             println!("No loop found.");
@@ -80,9 +85,14 @@ pub fn find(smf: &Smf, opts: Options) -> Result<(), String> {
     }
 
     let track = &smf.tracks[0];
-    let note_loop = (0..track.len()).fold(Loop::default(), |longest, cursor| {
-        find_loop_ending_at(cursor, 0, longest.len, track).unwrap_or(longest)
-    });
+
+    let note_loop = (0..track.len())
+        .into_par_iter()
+        .fold_with(Loop::default(), |longest, cursor| {
+            find_loop_ending_at(cursor, 0, longest.len, track).unwrap_or(longest)
+        })
+        .reduce(Loop::default, |a, b| if a.better_than(&b) { a } else { b });
+
     note_loop.print("Best loop:", &smf.header.timing, track, opts.samplerate);
     Ok(())
 }
