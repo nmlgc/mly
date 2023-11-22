@@ -14,4 +14,4 @@ For easier navigation, the output also contains the total MIDI pulse count and t
 
 ### `loop-find`
 
-Finds the longest fully repeated range of MIDI events.
+Finds the longest fully repeated and unique range of MIDI events.

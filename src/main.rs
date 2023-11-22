@@ -42,7 +42,7 @@ enum CliCommand {
     #[command(help_template = help())]
     Dump,
 
-    /// Finds the longest fully repeated range of MIDI events.
+    /// Finds the longest fully repeated and unique range of MIDI events.
     #[command(help_template = help())]
     LoopFind,
 }

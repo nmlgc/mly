@@ -48,6 +48,25 @@ impl Loop {
     }
 }
 
+fn loop_contains_itself(track: &[TrackEvent], found_loop: &Loop) -> bool {
+    let track_at_loop_start = track.iter().skip(found_loop.start);
+    for factor in (2..(found_loop.len / 2) + 1).filter(|&x| found_loop.len % x == 0) {
+        let section_len = found_loop.len / factor;
+        let section_is_repeated = (1..factor).all(|section_i| {
+            let a = track_at_loop_start.clone().take(section_len);
+            let b = track_at_loop_start
+                .clone()
+                .skip(section_i * section_len)
+                .take(section_len);
+            a.eq(b)
+        });
+        if section_is_repeated {
+            return true;
+        }
+    }
+    false
+}
+
 fn find_loop_ending_at(
     cursor: usize,
     earliest_start: usize,
@@ -74,7 +93,12 @@ fn find_loop_ending_at(
         if before_cursor.ne(past_cursor) {
             continue;
         }
+
         let new = Loop { start, len };
+        if loop_contains_itself(track, &new) {
+            continue;
+        }
+
         return Some(new);
     }
     None
