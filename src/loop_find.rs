@@ -3,7 +3,7 @@
 use midly::{Smf, Timing, TrackEvent};
 use rayon::prelude::*;
 
-use crate::{event, time::MidiTimeDisplay};
+use crate::{event, state::MidiState, time::MidiTimeDisplay};
 
 #[derive(Clone, Copy, Default)]
 struct Loop {
@@ -74,8 +74,13 @@ fn find_loop_ending_at(
     track: &[TrackEvent],
 ) -> Option<Loop> {
     let cursor_ev = &track[cursor];
+    let mut state_before = MidiState::new();
+    for ev in track.iter().take(earliest_start) {
+        state_before.update(ev);
+    }
     for start in earliest_start..(cursor - min_len) {
         let start_ev = &track[start];
+        state_before.update(start_ev);
 
         // SMF Type 1 sequences can only ever support pulse-based looping. Not looping at arbitrary
         // events within a pulse is also better for playback integrity in general.
@@ -91,6 +96,15 @@ fn find_loop_ending_at(
         let before_cursor = track.iter().skip(start).take(len);
         let past_cursor = track.iter().skip(cursor).take(len);
         if before_cursor.ne(past_cursor) {
+            continue;
+        }
+
+        // Identical state at both points?
+        let mut state_past = state_before.clone();
+        for ev in track.iter().skip(start).take(len) {
+            state_past.update(ev);
+        }
+        if state_before != state_past {
             continue;
         }
 
