@@ -1,6 +1,6 @@
 //! Loop detection.
 
-use midly::{Smf, Timing, TrackEvent};
+use midly::{MidiMessage, Smf, Timing, TrackEvent, TrackEventKind};
 use rayon::prelude::*;
 
 use crate::{event, state::MidiState, time::MidiTimeDisplay};
@@ -85,6 +85,16 @@ fn find_loop_ending_at(
         // SMF Type 1 sequences can only ever support pulse-based looping. Not looping at arbitrary
         // events within a pulse is also better for playback integrity in general.
         if start_ev.delta == 0 || cursor_ev.delta == 0 {
+            continue;
+        }
+
+        // Program changes can be expensive operations on some MIDI devices. Let's not start a loop
+        // on the same pulse.
+        if let TrackEventKind::Midi {
+            channel: _,
+            message: MidiMessage::ProgramChange { program: _ },
+        } = start_ev.kind
+        {
             continue;
         }
 
