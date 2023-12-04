@@ -31,3 +31,25 @@ pub fn note(ev: &TrackEvent) -> Option<Note> {
 pub fn note_on(ev: &TrackEvent) -> Option<Note> {
     note(ev).filter(|n| n.is_on())
 }
+
+pub struct Controller {
+    pub channel: u4,
+    pub controller: u7,
+}
+
+pub fn controller(ev: &TrackEvent) -> Option<Controller> {
+    if let TrackEventKind::Midi {
+        channel,
+        message: MidiMessage::Controller {
+            controller,
+            value: _,
+        },
+    } = ev.kind
+    {
+        return Some(Controller {
+            channel,
+            controller,
+        });
+    }
+    None
+}

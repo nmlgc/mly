@@ -1,5 +1,7 @@
 //! Loop detection.
 
+use std::collections::HashSet;
+
 use midly::{MidiMessage, Smf, Timing, TrackEvent, TrackEventKind};
 use rayon::prelude::*;
 
@@ -73,6 +75,12 @@ fn find_loop_ending_at(
     min_len: usize,
     track: &[TrackEvent],
 ) -> Option<Loop> {
+    #[derive(PartialEq, Eq, Hash)]
+    struct CCOnChannel {
+        ch: usize,
+        cc: usize,
+    }
+
     let cursor_ev = &track[cursor];
     let mut state_before = MidiState::new();
     for ev in track.iter().take(earliest_start) {
@@ -111,9 +119,32 @@ fn find_loop_ending_at(
 
         // Identical state at both points?
         let mut state_past = state_before.clone();
+        let mut redundant_ccs = HashSet::new(); // Defer the overrides to the end of the loop
+        let mut played_a_note = [false; 16];
         for ev in track.iter().skip(start).take(len) {
             state_past.update(ev);
+
+            if let Some(note) = event::note(ev) {
+                let ch = note.channel.as_int() as usize;
+                if note.is_on() {
+                    // If a channel hasn't played a note between the start of the loop and a
+                    // controller change, we can ignore that controller for the state comparison.
+                    played_a_note[ch] = true;
+                }
+            }
+
+            if let Some(cc) = event::controller(ev) {
+                let ch = cc.channel.as_int() as usize;
+                let cc = cc.controller.as_int() as usize;
+                if !played_a_note[ch] {
+                    redundant_ccs.insert(CCOnChannel { ch, cc });
+                }
+            }
         }
+        for CCOnChannel { ch, cc } in redundant_ccs {
+            state_past.ch[ch].cc[cc] = state_before.ch[ch].cc[cc];
+        }
+
         if state_before != state_past {
             continue;
         }
