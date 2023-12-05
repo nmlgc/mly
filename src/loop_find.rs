@@ -57,9 +57,17 @@ fn find_loop_ending_at(
     let cursor_ev = &track[cursor];
     for start in earliest_start..(cursor - min_len) {
         let start_ev = &track[start];
+
+        // SMF Type 1 sequences can only ever support pulse-based looping. Not looping at arbitrary
+        // events within a pulse is also better for playback integrity in general.
+        if start_ev.delta == 0 || cursor_ev.delta == 0 {
+            continue;
+        }
+
         if start_ev != cursor_ev {
             continue;
         }
+
         let len = cursor - start;
         let before_cursor = track.iter().skip(start).take(len);
         let past_cursor = track.iter().skip(cursor).take(len);
