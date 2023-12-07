@@ -2,8 +2,40 @@ use std::error::Error;
 
 use clap::Parser;
 
+struct HelpTemplate {}
+
+const INDENT: &str = "  ";
+
+impl From<HelpTemplate> for clap::builder::StyledStr {
+    fn from(_: HelpTemplate) -> Self {
+        format!(
+            "{{about-with-newline}}
+{{usage-heading}}
+{INDENT}{{usage}}
+
+{{all-args}}{{after-help}}",
+        )
+        .into()
+    }
+}
+
+fn help() -> HelpTemplate {
+    HelpTemplate {}
+}
+
 #[derive(Parser)]
-#[command(author, version, about, long_about)]
+#[command(
+    author,
+    version,
+    about,
+    long_about,
+    help_template = help(),
+    after_help = &format!(
+        // color_print::cstr!() does nothing else. Spelling out the codes is terser, avoids an
+        // otherwise useless dependency, and even Windows supports them these days.
+        "\x1B[4;1mLatest version and source code:\x1B[0m\n{INDENT}https://github.com/nmlgc/mly"
+    )
+)]
 struct Cli {}
 
 fn run(_: Cli) -> Result<(), Box<dyn Error>> {
