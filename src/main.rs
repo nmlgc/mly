@@ -29,6 +29,8 @@ fn help() -> HelpTemplate {
     version,
     about,
     long_about,
+    infer_subcommands = true,
+    subcommand_help_heading = "Commands (partial matches are supported)",
     help_template = help(),
     after_help = &format!(
         // color_print::cstr!() does nothing else. Spelling out the codes is terser, avoids an
