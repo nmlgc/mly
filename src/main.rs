@@ -1,6 +1,7 @@
 mod dump;
 mod event;
 mod loop_find;
+mod smf;
 mod state;
 mod time;
 
@@ -46,6 +47,15 @@ enum CliCommand {
     /// Finds the longest fully repeated and unique range of MIDI events.
     #[command(help_template = help())]
     LoopFind,
+
+    /// Flattens the sequence into a single track and writes the result as SMF Type 0 to stdout.
+    ///
+    /// With the exception of any *End of Track* events before the final one, all events are
+    /// preserved, even if they don't make sense in a single-channel sequence (such as any *Track
+    /// Name* meta events after the first). Simultaneous MIDI events are sorted according to the
+    /// track order of the input sequence.
+    #[command(help_template = help())]
+    Smf0,
 }
 
 #[derive(Parser)]
@@ -85,6 +95,7 @@ fn run(args: Cli) -> Result<(), Box<dyn Error>> {
             };
             loop_find::find(&smf, opts)
         }?,
+        CliCommand::Smf0 {} => smf::smf0(&smf)?,
     }
     Ok(())
 }

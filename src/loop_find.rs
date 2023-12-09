@@ -166,7 +166,7 @@ pub struct Options {
 pub fn find(smf: &Smf, opts: Options) -> Result<(), String> {
     if smf.tracks.len() != 1 {
         return Err(format!(
-            "only implemented for single-track sequences (sequence has {} tracks)",
+            "only implemented for single-track sequences (sequence has {} tracks); try flattening with the `smf0` command",
             smf.tracks.len()
         ));
     }
