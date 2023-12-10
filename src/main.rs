@@ -1,6 +1,7 @@
 mod dump;
 mod event;
 mod loop_find;
+mod manip;
 mod smf;
 mod state;
 mod time;
@@ -8,23 +9,53 @@ mod time;
 use std::{
     error::Error,
     io::{self, Read},
+    sync::OnceLock,
 };
 
 use clap::{Parser, Subcommand};
 use midly::Smf;
 
-struct HelpTemplate {}
+use crate::time::{total_pulse_of_range, PulseOrBeat};
+
+struct HelpTemplate {
+    with_bp: bool,
+}
+
+impl HelpTemplate {
+    fn with_bp(mut self) -> Self {
+        self.with_bp = true;
+        self
+    }
+}
 
 const INDENT: &str = "  ";
 
 impl From<HelpTemplate> for clap::builder::StyledStr {
-    fn from(_: HelpTemplate) -> Self {
+    fn from(value: HelpTemplate) -> Self {
+        static OPTS: OnceLock<textwrap::Options> = OnceLock::new();
+        let opts = OPTS.get_or_init(|| {
+            textwrap::Options::with_termwidth()
+                .initial_indent(INDENT)
+                .subsequent_indent(INDENT)
+        });
+
+        let bp = if value.with_bp {
+            static BP: OnceLock<String> = OnceLock::new();
+            BP.get_or_init(|| {
+                textwrap::fill("
+`B/P` parameters can be specified as either beats (in quarter-note:pulse format) or total pulse counts.
+", opts
+            )
+            })
+        } else {
+            ""
+        };
         format!(
             "{{about-with-newline}}
 {{usage-heading}}
 {INDENT}(.mid data in stdin) | {{usage}}
 {INDENT}<FILE.mid {{usage}}{{tab}}(does not work on PowerShell)
-
+{bp}
 {{all-args}}{{after-help}}",
         )
         .into()
@@ -32,11 +63,29 @@ impl From<HelpTemplate> for clap::builder::StyledStr {
 }
 
 fn help() -> HelpTemplate {
-    HelpTemplate {}
+    HelpTemplate { with_bp: false }
 }
 
 #[derive(Subcommand)]
 enum CliCommand {
+    /// Removes MIDI events within a certain range, and writes the new MIDI to stdout.
+    ///
+    /// Despite the beat/pulse parameters, this command is extremely basic, and simply removes the
+    /// events that are closest to the given time points. It inserts no *Note Off* events for notes
+    /// that might be playing at the cut point, nor modifies any delta times to re-synchronize
+    /// multi-track sequences; you might want to flatten the latter using the `smf0` command
+    /// beforehand.
+    #[command(help_template = help().with_bp())]
+    Cut {
+        /// Start of the cut range.
+        #[arg(value_name = "B/P")]
+        start: PulseOrBeat,
+
+        /// End of the cut range. Defaults to the end of the sequence if omitted.
+        #[arg(value_name = "B/P")]
+        end: Option<PulseOrBeat>,
+    },
+
     /// Dumps all MIDI events to stdout, with one event per line.
     ///
     /// For easier navigation, the output also contains the total MIDI pulse count and the 0-based
@@ -85,9 +134,13 @@ struct Cli {
 fn run(args: Cli) -> Result<(), Box<dyn Error>> {
     let mut bytes = Vec::new();
     io::stdin().lock().read_to_end(&mut bytes)?;
-    let smf = Smf::parse(&bytes)?;
+    let mut smf = Smf::parse(&bytes)?;
+    let timing = smf.header.timing;
 
     match args.command {
+        CliCommand::Cut { start, end } => {
+            manip::cut(&mut smf, total_pulse_of_range(&start, &end, &timing)?)?
+        }
         CliCommand::Dump => dump::dump(&smf),
         CliCommand::LoopFind => {
             let opts = loop_find::Options {
@@ -95,7 +148,7 @@ fn run(args: Cli) -> Result<(), Box<dyn Error>> {
             };
             loop_find::find(&smf, opts)
         }?,
-        CliCommand::Smf0 {} => smf::smf0(&smf)?,
+        CliCommand::Smf0 => smf::smf0(&smf)?,
     }
     Ok(())
 }

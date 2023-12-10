@@ -6,6 +6,12 @@ Unix-style filter suite for Standard MIDI Files, built on top of the [midly crat
 
 ## Commands
 
+### `cut`
+
+Removes MIDI events within a certain range, and writes the new MIDI to stdout.
+
+Despite the beat/pulse parameters, this command is extremely basic, and simply removes the events that are closest to the given time points. It inserts no *Note Off* events for notes that might be playing at the cut point, nor modifies any delta times to re-synchronize multi-track sequences; you might want to flatten the latter using the `smf0` command beforehand.
+
 ### `dump`
 
 Dumps all MIDI events to stdout, with one event per line.

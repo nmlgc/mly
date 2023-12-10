@@ -1,10 +1,10 @@
 //! Timekeeping in various units.
 
-use std::{cmp::max, time::Duration};
+use std::{cmp::max, error::Error, ops::Range, str::FromStr, time::Duration};
 
-use midly::{num::u28, MetaMessage, Timing, TrackEvent, TrackEventKind};
+use midly::{num::u15, num::u28, MetaMessage, Smf, Timing, TrackEvent, TrackEventKind};
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct MidiTime {
     pulse: u64,
     realtime: Option<Duration>,
@@ -26,6 +26,10 @@ impl MidiTime {
             },
             samplerate,
         }
+    }
+
+    pub fn pulse(&self) -> u64 {
+        self.pulse
     }
 
     pub fn sample(&self) -> Option<f64> {
@@ -63,7 +67,7 @@ impl std::ops::Add<&TrackEvent<'_>> for MidiTime {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, Default)]
 pub struct UnitWidths {
     pub delta: usize,
     pub pulse: usize,
@@ -75,6 +79,7 @@ pub struct UnitWidths {
 }
 
 /// Provides formatting for `MidiTime`.
+#[derive(Debug)]
 pub struct MidiTimeDisplay {
     pub time: MidiTime,
     widths: UnitWidths,
@@ -109,6 +114,17 @@ impl MidiTimeDisplay {
             (max(acc.0, ev.delta), (acc.1 + ev))
         });
         Self::with_limits(time_init, &end, delta_max)
+    }
+
+    pub fn new_at_end(smf: &Smf, samplerate: Option<u32>) -> Self {
+        let time_init = MidiTime::new(&smf.header.timing, samplerate);
+        let end = smf
+            .tracks
+            .iter()
+            .map(|track| track.iter().fold(time_init, |acc, ev| (acc + ev)))
+            .max_by(|a, b| a.pulse.cmp(&b.pulse))
+            .unwrap_or(time_init);
+        Self::with_limits(end, &end, 0.into())
     }
 
     pub fn widths(&self) -> UnitWidths {
@@ -163,4 +179,106 @@ impl std::fmt::Display for MidiTimeDisplay {
         }
         Ok(())
     }
+}
+
+/// Validators for pulse positions against the length of the sequence.
+#[derive(Debug)]
+pub struct PulseOutOfRange {
+    pulse: u64,
+    len: MidiTimeDisplay,
+}
+
+impl std::fmt::Display for PulseOutOfRange {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let (pulse, len) = (self.pulse, &self.len);
+        write!(f, "pulse {pulse} out of range (sequence ends at {len})")
+    }
+}
+
+impl std::error::Error for PulseOutOfRange {}
+
+pub fn validate_pulse_range(
+    smf: &Smf,
+    range: (u64, Option<u64>),
+) -> Result<Range<u64>, PulseOutOfRange> {
+    let len = MidiTimeDisplay::new_at_end(smf, None);
+    let ret = range.0..range.1.unwrap_or(len.time.pulse());
+    if ret.start > len.time.pulse() {
+        let pulse = ret.start;
+        return Err(PulseOutOfRange { pulse, len });
+    } else if ret.end > len.time.pulse() {
+        let pulse = ret.end;
+        return Err(PulseOutOfRange { pulse, len });
+    }
+    Ok(ret)
+}
+
+/// Stores a MIDI pulse in either total pulse or quarter-note:pulse format.
+#[derive(Clone, Debug)]
+enum PulseOrBeatValue {
+    Pulse(u64),
+    Beat(u64, u15),
+}
+
+#[derive(Clone, Debug)]
+pub struct PulseOrBeat {
+    pub input: String,
+    value: PulseOrBeatValue,
+}
+
+impl PulseOrBeat {
+    pub fn total_pulse(&self, timing: &Timing) -> Result<u64, &'static str> {
+        match self.value {
+            PulseOrBeatValue::Pulse(pulse) => Ok(pulse),
+            PulseOrBeatValue::Beat(qn, pulse) => match timing {
+                Timing::Metrical(ppqn) => Ok(qn * (ppqn.as_int() as u64) + pulse.as_int() as u64),
+                Timing::Timecode(_, _) => Err("ticks/second not supported"),
+            },
+        }
+    }
+}
+
+impl FromStr for PulseOrBeat {
+    type Err = Box<dyn std::error::Error + Send + Sync + 'static>;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let value = if let Some((s_qn, s_pulse)) = s.split_once(':') {
+            PulseOrBeatValue::Beat(
+                str::parse(s_qn)?,
+                u15::try_from(str::parse::<u16>(s_pulse)?)
+                    .ok_or("beat pulses must fit into 15 bits")?,
+            )
+        } else {
+            PulseOrBeatValue::Pulse(str::parse(s)?)
+        };
+        let input = s.to_string();
+        Ok(PulseOrBeat { input, value })
+    }
+}
+
+impl std::fmt::Display for PulseOrBeat {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.input)
+    }
+}
+
+pub fn total_pulse_of_range(
+    start: &PulseOrBeat,
+    end: &Option<PulseOrBeat>,
+    timing: &Timing,
+) -> Result<(u64, Option<u64>), Box<dyn Error>> {
+    let start_pulse = start.total_pulse(timing)?;
+    let end_pulse = if let Some(end) = end {
+        let end_pulse = end.total_pulse(timing)?;
+        if start_pulse > end_pulse {
+            return Err(format!(
+                "`{start}` (→ {start_pulse}) is bigger than `{end}` (→ {end_pulse})"
+            )
+            .into());
+        }
+        Some(end_pulse)
+    } else {
+        None
+    };
+    Ok((start_pulse, end_pulse))
 }
