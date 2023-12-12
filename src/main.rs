@@ -43,7 +43,12 @@ impl From<HelpTemplate> for clap::builder::StyledStr {
             static BP: OnceLock<String> = OnceLock::new();
             BP.get_or_init(|| {
                 textwrap::fill("
-`B/P` parameters can be specified as either beats (in quarter-note:pulse format) or total pulse counts.
+`B/P` parameters can be specified as either beats (in quarter-note:pulse format) or total pulse counts. Either side of the colon may be omitted if its value is 0.
+With a PPQN value of 480:
+
+• 4:240 (→ 2160)
+• 4:    (→ 1920)
+•  :240 (→  240)
 ", opts
             )
             })

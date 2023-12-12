@@ -243,6 +243,8 @@ impl FromStr for PulseOrBeat {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let value = if let Some((s_qn, s_pulse)) = s.split_once(':') {
+            let s_qn = if s_qn.is_empty() { "0" } else { s_qn };
+            let s_pulse = if s_pulse.is_empty() { "0" } else { s_pulse };
             PulseOrBeatValue::Beat(
                 str::parse(s_qn)?,
                 u15::try_from(str::parse::<u16>(s_pulse)?)
