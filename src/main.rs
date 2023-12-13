@@ -102,6 +102,18 @@ enum CliCommand {
     #[command(help_template = help())]
     LoopFind,
 
+    /// Repeats a range of MIDI events starting at a given point before the end of the sequence.
+    ///
+    /// Useful for reconstructing a full second repetition of a loop that only appears in truncated
+    /// form in the original sequence. Does not modify any delta times to re-synchronize multi-track
+    /// sequences; you might want to flatten such sequences using the `smf0` command beforehand.
+    #[command(help_template = help().with_bp())]
+    LoopUnfold {
+        /// Start of the copied range.
+        #[arg(value_name = "B/P")]
+        start: PulseOrBeat,
+    },
+
     /// Flattens the sequence into a single track and writes the result as SMF Type 0 to stdout.
     ///
     /// With the exception of any *End of Track* events before the final one, all events are
@@ -153,6 +165,9 @@ fn run(args: Cli) -> Result<(), Box<dyn Error>> {
             };
             loop_find::find(&smf, opts)
         }?,
+        CliCommand::LoopUnfold { start } => {
+            manip::loop_unfold(&mut smf, start.total_pulse(&timing)?)?
+        }
         CliCommand::Smf0 => smf::smf0(&smf)?,
     }
     Ok(())

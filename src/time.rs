@@ -197,6 +197,14 @@ impl std::fmt::Display for PulseOutOfRange {
 
 impl std::error::Error for PulseOutOfRange {}
 
+pub fn validate_pulse(smf: &Smf, pulse: u64) -> Result<(), PulseOutOfRange> {
+    let len = MidiTimeDisplay::new_at_end(smf, None);
+    if pulse > len.time.pulse() {
+        return Err(PulseOutOfRange { pulse, len });
+    }
+    Ok(())
+}
+
 pub fn validate_pulse_range(
     smf: &Smf,
     range: (u64, Option<u64>),

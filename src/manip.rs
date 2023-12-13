@@ -54,3 +54,26 @@ pub fn cut(smf: &mut Smf, range: (u64, Option<u64>)) -> Result<(), Box<dyn Error
     }
     Ok(smf.write_std(io::stdout())?)
 }
+
+pub fn loop_unfold(smf: &mut Smf, start: u64) -> Result<(), Box<dyn Error>> {
+    time::validate_pulse(smf, start)?;
+
+    for (track_i, track) in &mut smf.tracks.iter_mut().enumerate() {
+        if !ends_with_end_of_track_event(track) {
+            return Err(format!("track #{track_i} does not end with an end-of-track event").into());
+        };
+        let Some(start) = find_event_at_or_after(start, track) else {
+            continue;
+        };
+        let end = track.len() - 1;
+        let len = end - start;
+        let range = Vec::from_iter(track.iter().skip(start).take(len).cloned());
+
+        eprintln!(
+            "Track #{track_i}: Repeating events #[{start}, {end}[ at the end of the sequence"
+        );
+        track.pop();
+        track.extend(range);
+    }
+    Ok(smf.write_std(io::stdout())?)
+}

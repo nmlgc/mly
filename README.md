@@ -22,6 +22,12 @@ For easier navigation, the output also contains the total MIDI pulse count and t
 
 Finds the longest fully repeated and unique range of MIDI events.
 
+### `loop-unfold`
+
+Repeats a range of MIDI events starting at a given point before the end of the sequence.
+
+Useful for reconstructing a full second repetition of a loop that only appears in truncated form in the original sequence. Does not modify any delta times to re-synchronize multi-track sequences; you might want to flatten such sequences using the `smf0` command beforehand.
+
 ### `smf0`
 
 Flattens the sequence into a single track and writes the result as SMF Type 0 to stdout.
