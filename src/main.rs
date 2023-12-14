@@ -99,6 +99,19 @@ enum CliCommand {
     Dump,
 
     /// Finds the longest fully repeated and unique range of MIDI events.
+    ///
+    /// This command can detect two kinds of loops:
+    ///
+    /// * A loop in *note space* that represents the earliest possible event range with equivalent
+    ///   per-channel controller and pitch bend state at both ends. This loop is only appropriate
+    ///   for MIDI players, as its bounds can be placed into the middle of notes that are played
+    ///   with a different channel state at the start and end of the loop. Therefore, it assumes an
+    ///   event-based looping implementation that doesn't stop any playing notes when it jumps back,
+    ///   nor replays non-note messages from the beginning of the sequence to the loop start point.
+    ///
+    /// * If the global `-r`/`--samplerate` option is given, the command derives a second loop in
+    ///   *recording space* from the note-space loop. This loop is appropriate for loop-cutting a
+    ///   synthesizer recording of the MIDI sequence.
     #[command(help_template = help())]
     LoopFind,
 

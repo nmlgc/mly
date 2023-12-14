@@ -180,6 +180,17 @@ pub fn find(smf: &Smf, opts: Options) -> Result<(), String> {
         })
         .reduce(Loop::default, |a, b| if a.better_than(&b) { a } else { b });
 
-    note_loop.print("Best loop:", &smf.header.timing, track, opts.samplerate);
+    note_loop.print("Best loop in note space:", &smf.header.timing, track, None);
+
+    if note_loop.len != 0 && opts.samplerate.is_some() {
+        let start = note_loop.start;
+        let recording_loop = ((start + note_loop.len)..track.len())
+            .find_map(|cursor| find_loop_ending_at(cursor, start, 0, track))
+            .unwrap_or_default();
+
+        print!("\nBest loop in recording space: ");
+        recording_loop.print("", &smf.header.timing, track, opts.samplerate);
+    }
+
     Ok(())
 }
