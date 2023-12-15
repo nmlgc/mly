@@ -74,6 +74,7 @@ fn find_loop_ending_at(
     earliest_start: usize,
     min_len: usize,
     track: &[TrackEvent],
+    in_recording_space: bool,
 ) -> Option<Loop> {
     #[derive(PartialEq, Eq, Hash)]
     struct CCOnChannel {
@@ -121,6 +122,10 @@ fn find_loop_ending_at(
         let mut state_past = state_before.clone();
         let mut redundant_ccs = HashSet::new(); // Defer the overrides to the end of the loop
         let mut played_a_note = [false; 16];
+
+        // Let's better assume that the polyphony is equal to the maximum allowed note number in a
+        // MIDI file… (see https://youtu.be/4uDfG1BbxmQ)
+        let mut notes_active_on = [0_u64; 16];
         for ev in track.iter().skip(start).take(len) {
             state_past.update(ev);
 
@@ -130,6 +135,10 @@ fn find_loop_ending_at(
                     // If a channel hasn't played a note between the start of the loop and a
                     // controller change, we can ignore that controller for the state comparison.
                     played_a_note[ch] = true;
+                    notes_active_on[ch] += 1;
+                } else if notes_active_on[ch] > 0 {
+                    // Nicer than saturating_sub() in defending against mismatched Note Off events.
+                    notes_active_on[ch] -= 1;
                 }
             }
 
@@ -141,6 +150,18 @@ fn find_loop_ending_at(
                 }
             }
         }
+
+        // In recording space, any active notes at the loop boundaries must have identical channel
+        // state.
+        if in_recording_space
+            && notes_active_on
+                .iter()
+                .enumerate()
+                .any(|(ch, active)| *active > 0 && state_before.ch[ch] != state_past.ch[ch])
+        {
+            continue;
+        }
+
         for CCOnChannel { ch, cc } in redundant_ccs {
             state_past.ch[ch].cc[cc] = state_before.ch[ch].cc[cc];
         }
@@ -176,7 +197,7 @@ pub fn find(smf: &Smf, opts: Options) -> Result<(), String> {
     let note_loop = (0..track.len())
         .into_par_iter()
         .fold_with(Loop::default(), |longest, cursor| {
-            find_loop_ending_at(cursor, 0, longest.len, track).unwrap_or(longest)
+            find_loop_ending_at(cursor, 0, longest.len, track, false).unwrap_or(longest)
         })
         .reduce(Loop::default, |a, b| if a.better_than(&b) { a } else { b });
 
@@ -185,7 +206,7 @@ pub fn find(smf: &Smf, opts: Options) -> Result<(), String> {
     if note_loop.len != 0 && opts.samplerate.is_some() {
         let start = note_loop.start;
         let recording_loop = ((start + note_loop.len)..track.len())
-            .find_map(|cursor| find_loop_ending_at(cursor, start, 0, track))
+            .find_map(|cursor| find_loop_ending_at(cursor, start, 0, track, true))
             .unwrap_or_default();
 
         print!("\nBest loop in recording space: ");

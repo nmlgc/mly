@@ -111,7 +111,8 @@ enum CliCommand {
     ///
     /// * If the global `-r`/`--samplerate` option is given, the command derives a second loop in
     ///   *recording space* from the note-space loop. This loop is appropriate for loop-cutting a
-    ///   synthesizer recording of the MIDI sequence.
+    ///   synthesizer recording of the MIDI sequence, as it is only placed in the middle of playing
+    ///   notes if they share the same channel state at both ends of the loop.
     #[command(help_template = help())]
     LoopFind,
 
