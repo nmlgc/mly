@@ -182,6 +182,7 @@ fn find_loop_ending_at(
 
 pub struct Options {
     pub samplerate: Option<u32>,
+    pub shift: Option<u64>,
 }
 
 pub fn find(smf: &Smf, opts: Options) -> Result<(), String> {
@@ -203,8 +204,22 @@ pub fn find(smf: &Smf, opts: Options) -> Result<(), String> {
 
     note_loop.print("Best loop in note space:", &smf.header.timing, track, None);
 
-    if note_loop.len != 0 && opts.samplerate.is_some() {
-        let start = note_loop.start;
+    if note_loop.len != 0 && (opts.samplerate.is_some() || opts.shift.is_some()) {
+        let shift_i = if let Some(shift) = opts.shift {
+            let mut acc = 0_u64;
+            track
+                .iter()
+                .skip(note_loop.start + 1)
+                .position(|ev| {
+                    acc += ev.delta.as_int() as u64;
+                    acc >= shift
+                })
+                .unwrap_or(note_loop.start)
+        } else {
+            0
+        };
+        let start = note_loop.start + shift_i;
+
         let recording_loop = ((start + note_loop.len)..track.len())
             .find_map(|cursor| find_loop_ending_at(cursor, start, 0, track, true))
             .unwrap_or_default();

@@ -109,12 +109,17 @@ enum CliCommand {
     ///   event-based looping implementation that doesn't stop any playing notes when it jumps back,
     ///   nor replays non-note messages from the beginning of the sequence to the loop start point.
     ///
-    /// * If the global `-r`/`--samplerate` option is given, the command derives a second loop in
-    ///   *recording space* from the note-space loop. This loop is appropriate for loop-cutting a
-    ///   synthesizer recording of the MIDI sequence, as it is only placed in the middle of playing
-    ///   notes if they share the same channel state at both ends of the loop.
-    #[command(help_template = help())]
-    LoopFind,
+    /// * If `-s/--shift` or the global `-r`/`--samplerate` option is given, the command derives a
+    ///   second loop in *recording space* from the event space loop. This loop is appropriate for
+    ///   loop-cutting a synthesizer recording of the MIDI sequence, as it is only placed in the
+    ///   middle of playing notes if they share the same channel state at both ends of the loop.
+    #[command(help_template = help().with_bp())]
+    LoopFind {
+        /// Shift the recording-space loop by the given number of beats to compensate for note
+        /// release and reverb times.
+        #[arg(short = 's', long, value_name = "B/P")]
+        shift: Option<PulseOrBeat>,
+    },
 
     /// Repeats a range of MIDI events starting at a given point before the end of the sequence.
     ///
@@ -173,9 +178,10 @@ fn run(args: Cli) -> Result<(), Box<dyn Error>> {
             manip::cut(&mut smf, total_pulse_of_range(&start, &end, &timing)?)?
         }
         CliCommand::Dump => dump::dump(&smf),
-        CliCommand::LoopFind => {
+        CliCommand::LoopFind { shift } => {
             let opts = loop_find::Options {
                 samplerate: args.samplerate,
+                shift: shift.map(|pb| pb.total_pulse(&timing)).transpose()?,
             };
             loop_find::find(&smf, opts)
         }?,
