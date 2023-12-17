@@ -111,8 +111,13 @@ enum CliCommand {
     ///
     /// * If `-s/--shift` or the global `-r`/`--samplerate` option is given, the command derives a
     ///   second loop in *recording space* from the event space loop. This loop is appropriate for
-    ///   loop-cutting a synthesizer recording of the MIDI sequence, as it is only placed in the
-    ///   middle of playing notes if they share the same channel state at both ends of the loop.
+    ///   loop-cutting a synthesizer recording of the MIDI sequence:
+    ///
+    ///   * It is only placed in the middle of playing notes if they share the same channel state
+    ///     at both ends of the loop.
+    ///
+    ///   * For easier calibration, it is enforced to start on a *Note On* event with non-zero
+    ///     velocity.
     #[command(help_template = help().with_bp())]
     LoopFind {
         /// Shift the recording-space loop by the given number of beats to compensate for note

@@ -26,7 +26,9 @@ This command can detect two kinds of loops:
 
 * A loop in *note space* that represents the earliest possible event range with equivalent per-channel controller and pitch bend state at both ends. This loop is only appropriate for MIDI players, as its bounds can be placed into the middle of notes that are played with a different channel state at the start and end of the loop. Therefore, it assumes an event-based looping implementation that doesn't stop any playing notes when it jumps back, nor replays non-note messages from the beginning of the sequence to the loop start point.
 
-* If `-s/--shift` or the global `-r`/`--samplerate` option is given, the command derives a second loop in *recording space* from the event space loop. This loop is appropriate for loop-cutting a synthesizer recording of the MIDI sequence, as it is only placed in the middle of playing notes if they share the same channel state at both ends of the loop.
+* If `-s/--shift` or the global `-r`/`--samplerate` option is given, the command derives a second loop in *recording space* from the event space loop. This loop is appropriate for loop-cutting a synthesizer recording of the MIDI sequence:
+  * It is only placed in the middle of playing notes if they share the same channel state at both ends of the loop.
+  * For easier calibration, it is enforced to start on a *Note On* event with non-zero velocity.
 
 ### `loop-unfold`
 

@@ -107,6 +107,12 @@ fn find_loop_ending_at(
             continue;
         }
 
+        // Loop construction in recording space often involves automated trimming of silence, so we
+        // really want to start on a Note On event.
+        if in_recording_space && event::note_on(start_ev).is_none() {
+            continue;
+        }
+
         if start_ev != cursor_ev {
             continue;
         }
