@@ -98,6 +98,25 @@ enum CliCommand {
     #[command(help_template = help())]
     Dump,
 
+    /// Removes all note events within the given range, and writes the modified MIDI to stdout.
+    ///
+    /// This only removes *Note On* events with nonzero velocity. Any playing notes at the start or
+    /// end of the removal range are left playing.
+    #[command(help_template = help().with_bp())]
+    FilterNote {
+        /// Retain notes in the range instead of removing them.
+        #[arg(short = 'v', long)]
+        invert: bool,
+
+        /// Start of the removal range.
+        #[arg(value_name = "B/P")]
+        start: PulseOrBeat,
+
+        /// End of the removal range. Defaults to the end of the sequence if omitted.
+        #[arg(value_name = "B/P")]
+        end: Option<PulseOrBeat>,
+    },
+
     /// Finds the longest fully repeated and unique range of MIDI events.
     ///
     /// This command can detect two kinds of loops:
@@ -183,6 +202,9 @@ fn run(args: Cli) -> Result<(), Box<dyn Error>> {
             manip::cut(&mut smf, total_pulse_of_range(&start, &end, &timing)?)?
         }
         CliCommand::Dump => dump::dump(&smf),
+        CliCommand::FilterNote { start, end, invert } => {
+            manip::filter_note(&smf, total_pulse_of_range(&start, &end, &timing)?, invert)?
+        }
         CliCommand::LoopFind { shift } => {
             let opts = loop_find::Options {
                 samplerate: args.samplerate,

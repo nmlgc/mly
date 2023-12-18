@@ -18,6 +18,12 @@ Dumps all MIDI events to stdout, with one event per line.
 
 For easier navigation, the output also contains the total MIDI pulse count and the 0-based *quarter-note:pulse* beat number in separate columns.
 
+### `filter-note`
+
+Removes all note events within the given range, and writes the modified MIDI to stdout.
+
+This only removes Note On events with nonzero velocity. Any playing notes at the start or end of the removal range are left playing.
+
 ### `loop-find`
 
 Finds the longest fully repeated and unique range of MIDI events.

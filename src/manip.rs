@@ -2,9 +2,9 @@
 
 use std::{error::Error, io};
 
-use midly::{MetaMessage, Smf, TrackEvent, TrackEventKind};
+use midly::{num::u28, MetaMessage, Smf, TrackEvent, TrackEventKind};
 
-use crate::time;
+use crate::{event, time};
 
 fn ends_with_end_of_track_event(track: &[TrackEvent]) -> bool {
     track
@@ -53,6 +53,42 @@ pub fn cut(smf: &mut Smf, range: (u64, Option<u64>)) -> Result<(), Box<dyn Error
         }
     }
     Ok(smf.write_std(io::stdout())?)
+}
+
+pub fn filter_note(
+    smf: &Smf,
+    range: (u64, Option<u64>),
+    invert: bool,
+) -> Result<(), Box<dyn Error>> {
+    let range = time::validate_pulse_range(smf, range)?;
+
+    let mut filtered_smf = Smf {
+        header: smf.header,
+        tracks: vec![],
+    };
+
+    for track in &smf.tracks {
+        let mut pulse: u64 = 0;
+        let mut delta_carry: u28 = 0.into();
+        filtered_smf.tracks.push(
+            track
+                .iter()
+                .filter_map(|ev| {
+                    let mut ev = *ev;
+                    pulse += ev.delta.as_int() as u64;
+                    ev.delta += delta_carry;
+                    delta_carry = 0.into();
+                    if (range.contains(&pulse) ^ invert) && event::note_on(&ev).is_some() {
+                        delta_carry = ev.delta;
+                        return None;
+                    }
+                    Some(ev)
+                })
+                .collect::<Vec<TrackEvent>>(),
+        );
+    }
+
+    Ok(filtered_smf.write_std(io::stdout())?)
 }
 
 pub fn loop_unfold(smf: &mut Smf, start: u64) -> Result<(), Box<dyn Error>> {
