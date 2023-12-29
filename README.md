@@ -18,6 +18,12 @@ Dumps all MIDI events to stdout, with one event per line.
 
 For easier navigation, the output also contains the total MIDI pulse count and the 0-based *quarter-note:pulse* beat number in separate columns.
 
+### `duration`
+
+Prints the total duration of the sequence.
+
+This command only examines the track with the highest final MIDI pulse value. Multi-track sequences might have their tempo events on a different track, which will cause all realtime values to be omitted. In that case, you will need to flatten the sequence using the `smf0` command beforehand.
+
 ### `filter-note`
 
 Removes all note events within the given range, and writes the modified MIDI to stdout.

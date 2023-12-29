@@ -98,6 +98,15 @@ enum CliCommand {
     #[command(help_template = help())]
     Dump,
 
+    /// Prints the total duration of the sequence.
+    ///
+    /// This command only examines the track with the highest final MIDI pulse value. Multi-track
+    /// sequences might have their tempo events on a different track, which will cause all realtime
+    /// values to be omitted. In that case, you will need to flatten the sequence using the `smf0`
+    /// command beforehand.
+    #[command(help_template = help())]
+    Duration,
+
     /// Removes all note events within the given range, and writes the modified MIDI to stdout.
     ///
     /// This only removes *Note On* events with nonzero velocity. Any playing notes at the start or
@@ -202,6 +211,7 @@ fn run(args: Cli) -> Result<(), Box<dyn Error>> {
             manip::cut(&mut smf, total_pulse_of_range(&start, &end, &timing)?)?
         }
         CliCommand::Dump => dump::dump(&smf),
+        CliCommand::Duration => time::duration(&smf, args.samplerate),
         CliCommand::FilterNote { start, end, invert } => {
             manip::filter_note(&smf, total_pulse_of_range(&start, &end, &timing)?, invert)?
         }

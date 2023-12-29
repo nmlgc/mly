@@ -292,3 +292,7 @@ pub fn total_pulse_of_range(
     };
     Ok((start_pulse, end_pulse))
 }
+
+pub fn duration(smf: &Smf, samplerate: Option<u32>) {
+    println!("{}", MidiTimeDisplay::new_at_end(smf, samplerate))
+}
