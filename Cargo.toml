@@ -20,3 +20,4 @@ textwrap = { version = "0.16.0", features = ["terminal_size"], default-features 
 lto = true
 strip = true
 panic = "abort"
+codegen-units = 1
